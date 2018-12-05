@@ -2,14 +2,14 @@ package = "map"
 version = "1.1-0"
 
 source = {
-   url = "git://github.com/clementfarabet/lua---camera",
+   url = "https://github.com/omario61/lua---Map",
 }
 
 description = {
    summary = "A simple wrapper package to give torch access to a c++ map",
    detailed = [[
    ]],
-   homepage = "https://github.com/clementfarabet/lua---camera",
+   homepage = "https://github.com/omario61/lua---Map",
    license = "BSD"
 }
 

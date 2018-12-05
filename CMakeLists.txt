@@ -25,5 +25,5 @@ endif (NOT UNIX)
 install_files(/lua/map init.lua)
 
 SET(src)
-SET(luasrc init.lua)
+SET(luasrc linux/init.lua)
 ADD_TORCH_PACKAGE(map "${src}" "${luasrc}" "Image Processing")
