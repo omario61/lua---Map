@@ -2,6 +2,7 @@
 #include <luaT.h>
 #include <TH.h>
 #include <iostream>
+#include <omp.h>
 #include <map>
 
 using namespace std;
@@ -10,17 +11,29 @@ class Pixel{
 public:
     double r, g, b;
     double h, s, l;
+    int idx_i, idx_j;
     Pixel(){}
     Pixel(double red, double green, double blue){
       this->r = red;
       this->g = green;
       this->b = blue;
+      this->idx_i = this->idx_j = -1;
+      toHsl();
+    }
+    Pixel(double red, double green, double blue, int idx_i, int idx_j){
+      this->r = red;
+      this->g = green;
+      this->b = blue;
+      this->idx_i = idx_i;
+      this->idx_j = idx_j;
       toHsl();
     }
     Pixel(const Pixel& p){
       this->r = p.r;
       this->g = p.g;
       this->b = p.b;
+      this->idx_i = p.idx_i;
+      this->idx_j = p.idx_j;
       toHsl();
     }
     void toHsl(){
@@ -60,6 +73,9 @@ public:
     Pixel operator/(const int n) const{
         return Pixel(r / n, g / n, b / n);
     }
+    bool spatialDataAvailable() const{
+        return this->idx_i == -1;
+    }
 };
 class compareColors{
 public:
@@ -71,18 +87,24 @@ public:
         double rdiff = fabs(x.r - y.r);
         double gdiff = fabs(x.g - y.g);
         double bdiff = fabs(x.b - y.b);
-
-        return x.magnitude() < y.magnitude();
+        epsillon = 10e-9;
+        if(fabs(x.magnitude()- y.magnitude()) > epsillon || !(x.spatialDataAvailable() && y.spatialDataAvailable())){
+          return x.magnitude() < y.magnitude();
+        } else{
+          return (x.idx_i - y.idx_i) * (x.idx_i - y.idx_i) + (x.idx_j - y.idx_j) * (x.idx_j - y.idx_j) ;
+        }
     }
 };
 
 std::map<Pixel, Pixel, compareColors> pixel_map;
+int threshold = 0;
 
 extern "C"{
   static int l_init (lua_State *L) {
       // pixel_map[5] = 10;
       // pixel_map[15] = 20;
       pixel_map.clear();
+      threshold = 10000000;
       lua_pushboolean(L, 1);
       return 1;
   }
@@ -168,6 +190,9 @@ extern "C"{
     // printf("Entering add all function\n");
     int height  = lua_tonumber(L, 3);
     int width  = lua_tonumber(L, 4);
+    if(pixel_map.size() > threshold){
+        return 1;
+    }
     THDoubleTensor * content_frame = (THDoubleTensor *) luaT_toudata(L, 1, luaT_typenameid(L, "torch.DoubleTensor"));
     THDoubleTensor_resize3d(content_frame, 3, height, width);
     double * content_data = THDoubleTensor_data(content_frame);
@@ -216,7 +241,7 @@ extern "C"{
     map<Pixel, Pixel>::iterator lower = pixel_map.lower_bound(key);
     map<Pixel, Pixel>::iterator upper = pixel_map.upper_bound(key);
     if(pixel_map.find(key) != pixel_map.end()){
-        value = pixel_map[key];
+        value = pixel_map.at(key);
         // printf("Found the needed value\n");
     } else{
         // printf("Not Found the needed value %lf %lf %lf %lf\n", key.r, key.g, key.b, key.h);
@@ -259,7 +284,7 @@ extern "C"{
         int totalSize = height * width;
         // style_data[0] = style_data[1] =  style_data[2] = 0.55555555;
         // return 1;
-
+#pragma omp parallel for shared(style_data, content_data, height, width) collapse(2)
         for(int i = 0; i < height; i++){
           for(int j = 0; j < width; j++){
               int idx =  i * width + j;
@@ -283,6 +308,11 @@ extern "C"{
         return 1;
   }
 
+  static int l_clear(lua_State *L){
+      pixel_map.clear();
+      return 1;
+  }
+
 
   // Register functions in LUA
   static const struct luaL_reg map_fun [] = {
@@ -291,6 +321,7 @@ extern "C"{
       {"add_all"          , l_add_all},
       {"get"              , l_get},
       {"get_all"          , l_get_all},
+      {"clear"          , l_clear},
       {NULL, NULL}  /* sentinel */
   };
 

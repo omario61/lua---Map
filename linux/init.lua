@@ -35,3 +35,7 @@ function Map:get_all(content, style)
    local kkk = libmap.get_all(content, tensor, content:size(2), content:size(3))
    return tensor
 end
+
+function Map:clear()
+   return libmap.clear()
+end
