@@ -39,3 +39,7 @@ end
 function Map:clear()
    return libmap.clear()
 end
+
+function Map:size()
+   return libmap.size()
+end

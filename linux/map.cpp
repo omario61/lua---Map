@@ -76,22 +76,25 @@ public:
     bool spatialDataAvailable() const{
         return this->idx_i == -1;
     }
+    int spatialMagnitude() const{
+        return std::min(idx_i, idx_j);
+    }
 };
 class compareColors{
 public:
     bool operator()(const Pixel& x, const Pixel& y) const{
         double epsillon = 10e-4;
-        if(fabs(x.compareValue() - y.compareValue()) < epsillon){
-            return false;
-        }
+        // if(fabs(x.compareValue() - y.compareValue()) < epsillon){
+        //     return false;
+        // }
         double rdiff = fabs(x.r - y.r);
         double gdiff = fabs(x.g - y.g);
         double bdiff = fabs(x.b - y.b);
-        epsillon = 10e-9;
+        epsillon = 10e-4;
         if(fabs(x.magnitude()- y.magnitude()) > epsillon || !(x.spatialDataAvailable() && y.spatialDataAvailable())){
           return x.magnitude() < y.magnitude();
         } else{
-          return (x.idx_i - y.idx_i) * (x.idx_i - y.idx_i) + (x.idx_j - y.idx_j) * (x.idx_j - y.idx_j) ;
+          return  x.spatialMagnitude() < y.spatialMagnitude();
         }
     }
 };
@@ -212,8 +215,8 @@ extern "C"{
           double r2 = style_data[idx];
           double g2 = style_data[idx + totalSize];
           double b2 = style_data[idx + 2 * totalSize];
-          Pixel key = Pixel(r1, g1, b1);
-          Pixel value = Pixel(r2, g2, b2);
+          Pixel key = Pixel(r1, g1, b1, i, j);
+          Pixel value = Pixel(r2, g2, b2, i, j);
           if(tmp.find(key) != tmp.end()){
               Pixel currVal = tmp[key];
               Pixel new_val = currVal + value;
@@ -235,8 +238,8 @@ extern "C"{
     return 1;
   }
 
-  static Pixel get(double r, double g, double b){
-    Pixel key = Pixel(r, g, b);
+  static Pixel get(double r, double g, double b, int idx_i, int idx_j){
+    Pixel key = Pixel(r, g, b, idx_i, idx_j);
     Pixel value;
     map<Pixel, Pixel>::iterator lower = pixel_map.lower_bound(key);
     map<Pixel, Pixel>::iterator upper = pixel_map.upper_bound(key);
@@ -291,7 +294,7 @@ extern "C"{
               double r1 = content_data[idx];
               double g1 = content_data[idx + totalSize];
               double b1 = content_data[idx + 2 * totalSize];
-              Pixel value = get(r1, g1, b1);
+              Pixel value = get(r1, g1, b1, i, j);
               style_data[idx] = value.r;
               style_data[idx + totalSize] = value.g;
               style_data[idx + 2 * totalSize] = value.b;
@@ -313,6 +316,10 @@ extern "C"{
       return 1;
   }
 
+  static int l_size(lua_State *L){
+      lua_pushnumber(L, pixel_map.size());
+      return 1;
+  }
 
   // Register functions in LUA
   static const struct luaL_reg map_fun [] = {
@@ -322,6 +329,7 @@ extern "C"{
       {"get"              , l_get},
       {"get_all"          , l_get_all},
       {"clear"          , l_clear},
+      {"size"          , l_size},
       {NULL, NULL}  /* sentinel */
   };
 
